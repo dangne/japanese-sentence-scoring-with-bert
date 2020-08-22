@@ -66,9 +66,13 @@ flags.DEFINE_bool("do_train", False, "Whether to run training.")
 
 flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
 
+flags.DEFINE_bool("do_predict", False, "Whether to run predict on the dev set.")
+
 flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
 
 flags.DEFINE_integer("eval_batch_size", 8, "Total batch size for eval.")
+
+flags.DEFINE_integer("predict_batch_size", 8, "Total batch size for predict.")
 
 flags.DEFINE_float("learning_rate", 5e-5, "The initial learning rate for Adam.")
 
@@ -235,7 +239,22 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
           eval_metrics=eval_metrics,
           scaffold_fn=scaffold_fn)
     else:
-      raise ValueError("Only TRAIN and EVAL modes are supported: %s" % (mode))
+      """Computes the loss and accuracy of the model."""
+      masked_lm_log_probs = tf.reshape(masked_lm_log_probs, [-1, masked_lm_log_probs.shape[-1]])
+      masked_lm_predictions = tf.argmax(masked_lm_log_probs, axis=-1, output_type=tf.int32)
+      masked_lm_example_loss = tf.reshape(masked_lm_example_loss, [-1])
+      masked_lm_ids = tf.reshape(masked_lm_ids, [-1])
+      masked_lm_weights = tf.reshape(masked_lm_weights, [-1])
+
+      predictions={"masked_lm_ids": masked_lm_ids,
+                   "masked_lm_predictions": masked_lm_predictions,
+                   "masked_lm_log_probs": masked_lm_log_probs
+      }
+
+      output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+          mode=mode,
+          predictions=predictions,
+          scaffold_fn=scaffold_fn)
 
     return output_spec
 
@@ -388,6 +407,7 @@ def input_fn_builder(input_files,
             batch_size=batch_size,
             num_parallel_batches=num_cpu_threads,
             drop_remainder=True))
+
     return d
 
   return input_fn
@@ -411,8 +431,8 @@ def _decode_record(record, name_to_features):
 def main(_):
   tf.logging.set_verbosity(tf.logging.INFO)
 
-  if not FLAGS.do_train and not FLAGS.do_eval:
-    raise ValueError("At least one of `do_train` or `do_eval` must be True.")
+  if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
+    raise ValueError("At least one of `do_train` or `do_eval` or `do_predict` must be True.")
 
   bert_config = modeling.BertConfig.from_json_file(bert_config_file.name)
 
@@ -458,7 +478,8 @@ def main(_):
       model_fn=model_fn,
       config=run_config,
       train_batch_size=FLAGS.train_batch_size,
-      eval_batch_size=FLAGS.eval_batch_size)
+      eval_batch_size=FLAGS.eval_batch_size,
+      predict_batch_size=FLAGS.predict_batch_size)
 
   if FLAGS.do_train:
     tf.logging.info("***** Running training *****")
@@ -490,6 +511,33 @@ def main(_):
         tf.logging.info("  %s = %s", key, str(result[key]))
         writer.write("%s = %s\n" % (key, str(result[key])))
 
+  if FLAGS.do_predict:
+    tf.logging.info("***** Running prediction *****")
+    tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
+
+    predict_input_fn = input_fn_builder(
+        input_files=input_files,
+        max_seq_length=FLAGS.max_seq_length,
+        max_predictions_per_seq=FLAGS.max_predictions_per_seq,
+        is_training=False)
+
+    results = estimator.predict(
+        input_fn=predict_input_fn)
+
+    # Get actual number of examples to predict
+    num_actual_predict_examples = 0
+    for record in tf.python_io.tf_record_iterator(FLAGS.input_file):
+        num_actual_predict_examples += 1
+
+    output_predict_file = os.path.join(FLAGS.output_dir, "predict_results.txt")
+    with tf.gfile.GFile(output_predict_file, "w") as writer:
+      tf.logging.info("***** Predict results *****")
+      for (i, result) in enumerate(results):
+        if i > num_actual_predict_examples:
+          break
+        for key in sorted(result.keys()):
+          tf.logging.info("  %d: %s = %s", i, key, str(result[key]))
+          writer.write("%d: %s = %s\n" % (i, key, str(result[key])))
 
 if __name__ == "__main__":
   flags.mark_flag_as_required("input_file")
