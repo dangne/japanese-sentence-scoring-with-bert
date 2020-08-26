@@ -68,6 +68,8 @@ flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
 
 flags.DEFINE_bool("do_predict", False, "Whether to run predict on the dev set.")
 
+flags.DEFINE_bool("do_export", False, "Whether to export the estimator to SavedModel format")
+
 flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
 
 flags.DEFINE_integer("eval_batch_size", 8, "Total batch size for eval.")
@@ -428,11 +430,33 @@ def _decode_record(record, name_to_features):
   return example
 
 
+def serving_input_fn():
+  input_ids = tf.placeholder(tf.int32, [None, FLAGS.max_seq_length], name='input_ids')
+  input_mask = tf.placeholder(tf.int32, [None, FLAGS.max_seq_length], name='input_mask')
+  segment_ids = tf.placeholder(tf.int32, [None, FLAGS.max_seq_length], name='segment_ids')
+  masked_lm_positions = tf.placeholder(tf.int32, [None, FLAGS.max_predictions_per_seq], name='masked_lm_positions')
+  masked_lm_ids = tf.placeholder(tf.int32, [None, FLAGS.max_predictions_per_seq], name='masked_lm_ids')
+  masked_lm_weights = tf.placeholder(tf.float32, [None, FLAGS.max_predictions_per_seq], name='masked_lm_weights')
+  next_sentence_labels = tf.placeholder(tf.int32, [None, FLAGS.max_predictions_per_seq], name='next_sentence_labels')
+
+  input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({
+      'input_ids': input_ids,
+      'input_mask': input_mask,
+      'segment_ids': segment_ids,
+      'masked_lm_positions': masked_lm_positions,
+      'masked_lm_ids': masked_lm_ids,
+      'masked_lm_weights': masked_lm_weights,
+      'next_sentence_labels': next_sentence_labels
+  })()
+
+  return input_fn
+
+
 def main(_):
   tf.logging.set_verbosity(tf.logging.INFO)
 
-  if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
-    raise ValueError("At least one of `do_train` or `do_eval` or `do_predict` must be True.")
+  if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict and not FLAGS.do_export:
+    raise ValueError("At least one of `do_train` or `do_eval` or `do_predict` or `do_export` must be True.")
 
   bert_config = modeling.BertConfig.from_json_file(bert_config_file.name)
 
@@ -538,6 +562,10 @@ def main(_):
         for key in sorted(result.keys()):
           tf.logging.info("  %d: %s = %s", i, key, str(result[key]))
           writer.write("%d: %s = %s\n" % (i, key, str(result[key])))
+
+  if FLAGS.do_export:
+    estimator._export_to_tpu = False
+    estimator.export_saved_model(FLAGS.output_dir, serving_input_fn, checkpoint_path=FLAGS.init_checkpoint)
 
 if __name__ == "__main__":
   flags.mark_flag_as_required("input_file")
