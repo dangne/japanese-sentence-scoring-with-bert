@@ -1,16 +1,16 @@
 # Japanese sentence scoring with BERT
 
-This is repository of using BERT to score Japanese sentence following [this paper](http://proceedings.mlr.press/v101/shin19a/shin19a.pdf).
+This is a repository of using BERT for Japanese sentence scoring following [this paper](http://proceedings.mlr.press/v101/shin19a/shin19a.pdf).
 
 To clone this repository together with the required [BERT](https://github.com/google-research/bert).
 
     git clone --recurse-submodules https://github.com/dangne/japanese-sentence-scoring-with-bert
 
-The pretrained BERT and trained SentencePiece were fork from [yoheikikuta's repo](https://github.com/yoheikikuta/bert-japanese), please download all pretrained objects to `model/` directory.
+The pretrained BERT and trained SentencePiece were forked from [yoheikikuta's repo](https://github.com/yoheikikuta/bert-japanese), please download all pretrained objects to `model/` directory.
 
 - **[`Pretrained BERT model and trained SentencePiece model`](https://drive.google.com/drive/folders/1Zsm9DD40lrUVu6iAnIuTH2ODIkh-WM-O?usp=sharing)** 
 
-You can run the below scripts with TPU, follow this [Colab notebook](https://colab.research.google.com/drive/1ZhV7PGJFyCp0drOLUGE32Vu3a9-t05zS?usp=sharing) for instructions.
+You can run the scripts with TPU, follow this [Colab notebook](https://colab.research.google.com/drive/1ZhV7PGJFyCp0drOLUGE32Vu3a9-t05zS?usp=sharing) for instructions.
 
 ## Create data for masked token prediction task
 
