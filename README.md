@@ -12,7 +12,7 @@ The pretrained BERT and trained SentencePiece were fork from [yoheikikuta's repo
 
 You can run the below scripts with TPU, follow this [Colab notebook](https://colab.research.google.com/drive/1ZhV7PGJFyCp0drOLUGE32Vu3a9-t05zS?usp=sharing) for instructions.
 
-## Create data for predicting masked token task
+## Create data for masked token prediction task
 
 Convert raw text (.txt file) to .tfrecord format that BERT can understand
 
@@ -35,7 +35,7 @@ python3 src/create_pretraining_data.py \
 
 
 
-## Finetune on predicting masked token task
+## Finetune on masked token prediction task
 
 ```
 python3 src/run_pretraining.py \
@@ -55,7 +55,7 @@ python3 src/run_pretraining.py \
     --save_checkpoints_steps=1000 \
     --iterations_per_loop=1000 \
     --max_eval_steps=100 \
-    --use_tpu=False \
+    --use_tpu=False
 ```
 
 **Remark:** to see the full list of parameters, visit the code of [`run_pretraining.py`](https://github.com/dangne/japanese-sentence-scoring-with-bert/blob/master/src/run_pretraining.py)
@@ -77,7 +77,7 @@ python3 src/run_pretraining.py \
     --predict_batch_size=8 \
     --iterations_per_loop=1000 \
     --max_eval_steps=100 \
-    --use_tpu=False \
+    --use_tpu=False
 ```
 
 **Remark:** to see the full list of parameters, visit the code of [`run_pretraining.py`](https://github.com/dangne/japanese-sentence-scoring-with-bert/blob/master/src/run_pretraining.py)
